@@ -2,7 +2,7 @@ import React from "react";
 import {
   Table,
   TableBody,
-  TableCaption,
+  //TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -18,7 +18,7 @@ import {
 import { transactionCategoryStyles } from "@/constants";
 
 const CategoryBadge = ({ category }: CategoryBadgeProps) => {
-  const { borderColor, backgroundColor, textColor, chipBackgroundColor } =
+  const { borderColor, backgroundColor, chipBackgroundColor } =
     transactionCategoryStyles[
       category as keyof typeof transactionCategoryStyles
     ] || transactionCategoryStyles.default;
