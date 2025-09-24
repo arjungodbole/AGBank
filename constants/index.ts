@@ -19,6 +19,11 @@ export const sidebarLinks = [
     route: "/payment-transfer",
     label: "Transfer Funds",
   },
+  {
+    imgURL: "/icons/poker-chips.svg",
+    route: "/join-group",
+    label: "Join Group"
+  }
 ];
 
 // good_user / good_password - Bank of America

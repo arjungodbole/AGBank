@@ -27,14 +27,7 @@ export async function createAdminClient() {
     .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT!)
     .setKey(process.env.NEXT_APPWRITE_KEY!);
 
-  console.log("🔍 Debug Environment Variables:");
-  console.log("Endpoint:", process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT);
-  console.log("Project:", process.env.NEXT_PUBLIC_APPWRITE_PROJECT);
-  console.log("API Key exists:", !!process.env.NEXT_APPWRITE_KEY);
-  console.log("API Key prefix:", process.env.NEXT_APPWRITE_KEY?.substring(0, 20) + "...");
-  console.log("Database ID:", process.env.APPWRITE_DATABASE_ID);
-  console.log("Transaction Collection ID:", process.env.APPWRITE_TRANSACTION_COLLECTION_ID);
-  console.log("Bank Collection ID:", process.env.APPWRITE_BANK_COLLECTION_ID);
+  
 
   return {
     get account() {

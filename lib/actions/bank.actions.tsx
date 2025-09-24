@@ -240,6 +240,12 @@ export const getAccounts = async ({ userId }: getAccountsProps) => {
 
     const accounts = await Promise.all(
       banks?.map(async (bank: Bank) => {
+        console.log("🔍 Attempting Plaid call with:", {
+          accessToken: bank.accessToken?.substring(0, 10) + "...", // Log first 10 chars
+          bankId: bank.id,
+          plaidEnv: process.env.PLAID_ENV,
+        });
+
         // get each account info from plaid
         const accountsResponse = await plaidClient.accountsGet({
           access_token: bank.accessToken,

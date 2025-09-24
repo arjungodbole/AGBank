@@ -6,19 +6,45 @@ import { getAccount, getAccounts } from "@/lib/actions/bank.actions";
 import { getLoggedInUser } from "@/lib/actions/user.actions";
 import { redirect } from "next/navigation";
 import React from "react";
-
+import Link from "next/link";
 const Home = async ({ searchParams }: SearchParamProps) => {
   const { id, page } = await searchParams;
   const currentPage = Number(page as string) || 1;
   const loggedIn = await getLoggedInUser();
 
+  console.log("🔍 Bank ID from URL:", id);
+
+  // Get accounts first
+  const accounts = await getAccounts({ userId: loggedIn.$id });
+
+  if (!accounts || !accounts.data || accounts.data.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <h1 className="text-2xl font-bold mb-4">No Banks Connected</h1>
+        <p className="mb-4">Connect a bank account to view reports.</p>
+        <Link
+          href="/connect-bank"
+          className="bg-blue-500 text-white px-4 py-2 rounded"
+        >
+          Connect Bank
+        </Link>
+      </div>
+    );
+  }
+
+  // If no ID provided, redirect to first account
+  if (!id) {
+    const firstAccountId = accounts.data[0]?.appwriteItemId;
+    if (firstAccountId) {
+      return redirect(`/reports?id=${firstAccountId}`);
+    } else {
+      return <div>Error: No valid account found</div>;
+    }
+  }
+
   // ✅ ADD DEBUG LOG HERE
   console.log("🔍 Search params:", { id, page });
   console.log("🔍 Selected account ID:", id);
-
-  const accounts = await getAccounts({ userId: loggedIn.$id });
-
-  if (!accounts) return;
 
   const accountsData = accounts?.data;
 
