@@ -40,19 +40,18 @@ export default function CreateGroupForm({
           setError(
             err instanceof Error ? err.message : "Failed to create group"
           );
-          console.error("Error creating group:", err);
         } finally {
           setLoading(false);
         }
       }}
-      className="w-full max-w-xl rounded-2xl p-6 bg-white"
+      className="w-full max-w-xl rounded-2xl p-4 bg-white"
     >
-      <h2 className="mb-4 text-xl font-semibold text-gray-900">
+      <h2 className="mb-2 text-xl font-semibold text-gray-900">
         Create a Group
       </h2>
 
       {error && (
-        <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-3 text-red-800 text-sm">
+        <div className="mb-3 rounded-lg bg-red-50 border border-red-200 p-2 text-red-800 text-sm">
           {error}
         </div>
       )}

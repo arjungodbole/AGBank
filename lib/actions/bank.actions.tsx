@@ -240,12 +240,6 @@ export const getAccounts = async ({ userId }: getAccountsProps) => {
 
     const accounts = await Promise.all(
       banks?.map(async (bank: Bank) => {
-        console.log("🔍 Attempting Plaid call with:", {
-          accessToken: bank.accessToken?.substring(0, 10) + "...", // Log first 10 chars
-          bankId: bank.id,
-          plaidEnv: process.env.PLAID_ENV,
-        });
-
         // get each account info from plaid
         const accountsResponse = await plaidClient.accountsGet({
           access_token: bank.accessToken,
@@ -282,32 +276,21 @@ export const getAccounts = async ({ userId }: getAccountsProps) => {
 
     return parseStringify({ data: accounts, totalBanks, totalCurrentBalance });
   } catch (error) {
-    console.error("An error occurred while getting the accounts:", error);
+    return null;
   }
 };
 
 // Get one bank account
 export const getAccount = async ({ appwriteItemId }: getAccountProps) => {
   try {
-    console.log("🔍 Getting account for appwriteItemId:", appwriteItemId);
-
     // get bank from db
     const bank = await getBank({ documentId: appwriteItemId });
 
     if (!bank) {
-      console.log("❌ No bank found with ID:", appwriteItemId);
       return { accountsData: [], account: null };
     }
 
-    console.log("🏦 Bank found:", {
-      id: bank.$id,
-      accountID: bank.accountID,
-      accountId: bank.accountId,
-      hasAccessToken: !!bank.accessToken,
-    });
-
     if (!bank.accessToken) {
-      console.log("❌ Bank found but no access token");
       return { accountsData: [], account: null };
     }
 
@@ -316,30 +299,12 @@ export const getAccount = async ({ appwriteItemId }: getAccountProps) => {
       access_token: bank.accessToken,
     });
 
-    console.log("📊 Plaid accounts response:", {
-      itemId: accountsResponse.data.item.item_id,
-      institutionId: accountsResponse.data.item.institution_id,
-      accountCount: accountsResponse.data.accounts.length,
-      accounts: accountsResponse.data.accounts.map((acc) => ({
-        id: acc.account_id,
-        name: acc.name,
-        type: acc.type,
-        subtype: acc.subtype,
-        mask: acc.mask,
-      })),
-    });
-
     const accountData = accountsResponse.data.accounts[0];
 
     // get transfer transactions from appwrite
     const transferTransactionsData = await getTransactionsByBankId({
       bankId: bank.$id,
     });
-
-    console.log(
-      "💸 Transfer transactions found:",
-      transferTransactionsData?.documents?.length || 0
-    );
 
     const transferTransactions =
       transferTransactionsData?.documents?.map((transferData: Transaction) => ({
@@ -368,31 +333,6 @@ export const getAccount = async ({ appwriteItemId }: getAccountProps) => {
       (transaction) => transaction.accountId === bank.accountID
     );
 
-    console.log("📊 Transactions filtered for account:", {
-      totalTransactions: transactionsArray.length,
-      filteredTransactions: filteredTransactions.length,
-      targetAccountId: bank.accountID,
-      transactionAccountIds: [
-        ...new Set(transactionsArray.map((t) => t.accountId)),
-      ],
-    });
-
-    console.log("📊 Plaid transactions found:", transactionsArray.length);
-
-    // If no transactions found for this account, check if there are any transactions at all
-    if (filteredTransactions.length === 0 && transactionsArray.length > 0) {
-      console.log(
-        "⚠️ No transactions found for account",
-        bank.accountID,
-        "but there are",
-        transactionsArray.length,
-        "total transactions"
-      );
-      console.log("📊 Available account IDs in transactions:", [
-        ...new Set(transactionsArray.map((t) => t.accountId)),
-      ]);
-    }
-
     const account = {
       id: accountData.account_id,
       availableBalance: accountData.balances.available!,
@@ -405,15 +345,6 @@ export const getAccount = async ({ appwriteItemId }: getAccountProps) => {
       subtype: accountData.subtype! as string,
       appwriteItemId: bank.$id,
     };
-
-    console.log("📊 Account data:", {
-      id: account.id,
-      name: account.name,
-      type: account.type,
-      subtype: account.subtype,
-      balance: account.currentBalance,
-      officialName: account.officialName,
-    });
 
     // sort transactions by date such that the most recent transaction is first
     const allTransactions = [
@@ -436,14 +367,11 @@ export const getAccount = async ({ appwriteItemId }: getAccountProps) => {
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    console.log("📊 Final transaction count:", allTransactions.length);
-
     return parseStringify({
       data: account,
       transactions: allTransactions,
     });
   } catch (error) {
-    console.error("❌ An error occurred while getting the account:", error);
     return null;
   }
 };
@@ -462,7 +390,7 @@ export const getInstitution = async ({
 
     return parseStringify(intitution);
   } catch (error) {
-    console.error("An error occurred while getting the accounts:", error);
+    return null;
   }
 };
 
@@ -472,14 +400,8 @@ export const getTransactions = async ({
 }: getTransactionsProps) => {
   try {
     if (!accessToken) {
-      console.log("❌ No access token provided");
       return parseStringify([]);
     }
-
-    console.log(
-      "🔍 Fetching transactions with access token:",
-      accessToken.substring(0, 10) + "..."
-    );
 
     // ✅ Get much wider date range
     const response = await plaidClient.transactionsGet({
@@ -489,16 +411,6 @@ export const getTransactions = async ({
       //count: 500,               // ✅ Get up to 500 transactions
       //offset: 0,
     });
-
-    console.log(
-      `📊 Retrieved ${response.data.transactions.length} transactions`
-    ); // ✅ Debug log
-
-    // Log account IDs to see which accounts have transactions
-    const accountIds = [
-      ...new Set(response.data.transactions.map((t) => t.account_id)),
-    ];
-    console.log("🏦 Transaction account IDs:", accountIds);
 
     const transactions = response.data.transactions.map((transaction) => ({
       id: transaction.transaction_id,
@@ -513,22 +425,8 @@ export const getTransactions = async ({
       image: transaction.logo_url,
     }));
 
-    console.log(
-      "📊 Transaction categories from Plaid:",
-      transactions.map((t) => ({
-        name: t.name,
-        category: t.category,
-        accountId: t.accountId,
-        amount: t.amount,
-      }))
-    );
-
     return parseStringify(transactions);
   } catch (error: any) {
-    console.error("❌ Full Plaid error:", error);
-    console.error("❌ Error response:", error.response?.data);
-    console.error("❌ Error status:", error.response?.status);
-    console.error("An error occurred while getting transactions:", error);
     return parseStringify([]);
   }
 };
@@ -567,9 +465,6 @@ export const createTransfer = async () => {
     const transfer = responseCreateResponse.data.transfer;
     return parseStringify(transfer);
   } catch (error) {
-    console.error(
-      "An error occurred while creating transfer authorization:",
-      error
-    );
+    return null;
   }
 };

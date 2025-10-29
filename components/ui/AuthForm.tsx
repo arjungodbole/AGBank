@@ -59,7 +59,7 @@ const AuthForm = ({ type }: { type: string }) => {
       };
 
       if (type === "sign-up") {
-        const newUser = await signUp(data);
+        const newUser = await signUp(userData);
         setUser(newUser);
       }
 
@@ -71,7 +71,6 @@ const AuthForm = ({ type }: { type: string }) => {
         if (response) router.push("/reports");
       }
     } catch (error) {
-      console.log(error);
     } finally {
       setisLoading(false);
     }

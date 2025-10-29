@@ -12,8 +12,6 @@ const Home = async ({ searchParams }: SearchParamProps) => {
   const currentPage = Number(page as string) || 1;
   const loggedIn = await getLoggedInUser();
 
-  console.log("🔍 Bank ID from URL:", id);
-
   // Get accounts first
   const accounts = await getAccounts({ userId: loggedIn.$id });
 
@@ -42,40 +40,19 @@ const Home = async ({ searchParams }: SearchParamProps) => {
     }
   }
 
-  // ✅ ADD DEBUG LOG HERE
-  console.log("🔍 Search params:", { id, page });
-  console.log("🔍 Selected account ID:", id);
-
   const accountsData = accounts?.data;
-
-  // ✅ ADD DEBUG LOG HERE
-  console.log(
-    "🏦 Available accounts:",
-    accountsData?.map((acc: any) => ({
-      id: acc.appwriteItemId,
-      name: acc.name,
-      balance: acc.currentBalance,
-    }))
-  );
 
   const appwriteItemId = (id as string) || accountsData[0]?.appwriteItemId;
 
-  // ✅ ADD DEBUG LOG HERE
-  console.log("🎯 Fetching account with ID:", appwriteItemId);
-
   const account = await getAccount({ appwriteItemId });
 
-  // ✅ ADD DEBUG LOG HERE
-  console.log(
-    "📊 Account data returned:",
-    account?.data
-      ? {
-          name: account.data.name,
-          balance: account.data.currentBalance,
-          transactionCount: account.transactions?.length,
-        }
-      : "No account data"
-  );
+  if (!account || !account.data) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        Account data not available
+      </div>
+    );
+  }
 
   return (
     <section className="home">

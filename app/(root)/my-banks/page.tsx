@@ -13,15 +13,6 @@ const MyBank = async () => {
 
   const accountsData = accounts?.data;
 
-  console.log(
-    "🏦 My Banks accounts data:",
-    accountsData?.map((acc) => ({
-      name: acc.name,
-      shareableId: acc.shareableId,
-      hasShareableId: !!acc.shareableId,
-    }))
-  );
-
   return (
     <section className="home">
       <div className="home-content">

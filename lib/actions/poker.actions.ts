@@ -19,7 +19,6 @@ export async function createPokerSession({
   };
 
   // TODO: Replace with real database insert, e.g. using Prisma, Mongo, etc.
-  console.log("Poker session created:", session);
 
   return session;
 }

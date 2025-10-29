@@ -27,15 +27,20 @@ export const BankDropdown = ({
     const account = accounts.find((account) => account.appwriteItemId === id)!;
 
     setSeclected(account);
-    const newUrl = formUrlQuery({
-      params: searchParams.toString(),
-      key: "id",
-      value: id,
-    });
-    router.push("/reports");
 
     if (setValue) {
+      // If setValue is provided, we're in a form (like PaymentTransferForm)
+      // Just set the value, don't redirect
       setValue("senderBank", id);
+    } else {
+      // If no setValue, we're switching accounts on reports page
+      // Update URL and redirect
+      const newUrl = formUrlQuery({
+        params: searchParams.toString(),
+        key: "id",
+        value: id,
+      });
+      router.push(newUrl);
     }
   };
 

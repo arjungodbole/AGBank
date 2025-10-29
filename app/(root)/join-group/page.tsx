@@ -52,7 +52,7 @@ const scan_chips = async () => {
           />
         </header>
 
-        <div className="mt-8 space-y-8">
+        <div className=" space-y-4">
           <CreateGroupForm action={handleCreateGroup} />
           <JoinGroupForm action={handleJoinGroup} />
         </div>

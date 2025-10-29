@@ -19,13 +19,7 @@ export const Pagination = ({ page, totalPages }: PaginationProps) => {
       value: pageNumber.toString(),
     });
 
-    console.log("🔄 Pagination navigation:", {
-      type,
-      currentPage: page,
-      newPage: pageNumber,
-      url: newUrl,
-    });
-    router.push("/reports");
+    router.push(newUrl, { scroll: false });
   };
 
   return (

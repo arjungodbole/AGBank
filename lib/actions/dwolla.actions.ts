@@ -28,14 +28,22 @@ export const createFundingSource = async (
   options: CreateFundingSourceOptions
 ) => {
   try {
-    return await dwollaClient
-      .post(`customers/${options.customerId}/funding-sources`, {
+    const response = await dwollaClient.post(
+      `customers/${options.customerId}/funding-sources`,
+      {
         name: options.fundingSourceName,
         plaidToken: options.plaidToken,
-      })
-      .then((res) => res.headers.get("location"));
-  } catch (err) {
-    console.error("Creating a Funding Source Failed: ", err);
+      }
+    );
+    const location = response.headers.get("location");
+    
+    if (!location) {
+      return null;
+    }
+    
+    return location;
+  } catch (err: any) {
+    return null;
   }
 };
 
@@ -45,9 +53,14 @@ export const createOnDemandAuthorization = async () => {
       "on-demand-authorizations"
     );
     const authLink = onDemandAuthorization.body._links;
+    
+    if (!authLink) {
+      return null;
+    }
+    
     return authLink;
-  } catch (err) {
-    console.error("Creating an On Demand Authorization Failed: ", err);
+  } catch (err: any) {
+    return null;
   }
 };
 
@@ -57,13 +70,11 @@ export const createDwollaCustomer = async (newCustomer: NewDwollaCustomerParams)
       .post("customers", newCustomer)
       .then((res) => res.headers.get("location"));
   } catch (err: any) {
-    console.error("Creating a Dwolla Customer Failed: ", err);
     
     // If customer already exists, extract the URL from the error
     if (err.body?.code === "ValidationError" && err.body?._embedded?.errors?.[0]?.code === "Duplicate") {
       const existingCustomerUrl = err.body._embedded.errors[0]._links?.about?.href;
       if (existingCustomerUrl) {
-        console.log("📋 Using existing Dwolla customer:", existingCustomerUrl);
         return existingCustomerUrl;
       }
     }
@@ -77,12 +88,18 @@ export const createTransfer = async ({
   amount,
 }: TransferParams) => {
   try {
-    console.log("🔍 Creating Dwolla transfer with params:", {
-      sourceFundingSourceUrl,
-      destinationFundingSourceUrl,
-      amount,
-    });
-
+    if (!sourceFundingSourceUrl) {
+      return null;
+    }
+    
+    if (!destinationFundingSourceUrl) {
+      return null;
+    }
+    
+    if (!amount || parseFloat(amount) <= 0) {
+      return null;
+    }
+    
     const requestBody = {
       _links: {
         source: {
@@ -98,20 +115,17 @@ export const createTransfer = async ({
       },
     };
 
-    console.log("🔍 Dwolla request body:", requestBody);
-
     const response = await dwollaClient.post("transfers", requestBody);
     const transferLocation = response.headers.get("location");
     
-    console.log("✅ Dwolla transfer created successfully:", transferLocation);
+    if (!transferLocation) {
+      return null;
+    }
+    
     return transferLocation;
-  } catch (err) {
-    console.error("❌ Transfer fund failed: ", err);
-    console.error("❌ Error details:", {
-      message: err.message,
-      code: err.code,
-      body: err.body
-    });
+  } catch (err: any) {
+    // Return null instead of throwing to avoid serialization issues
+    // The calling code checks for null and handles it appropriately
     return null;
   }
 };
@@ -122,6 +136,14 @@ export const addFundingSource = async ({
   bankName,
 }: AddFundingSourceParams) => {
   try {
+    if (!dwollaCustomerId) {
+      return null;
+    }
+    
+    if (!processorToken) {
+      return null;
+    }
+    
     // create dwolla auth link
     const dwollaAuthLinks = await createOnDemandAuthorization();
 
@@ -133,7 +155,7 @@ export const addFundingSource = async ({
       _links: dwollaAuthLinks,
     };
     return await createFundingSource(fundingSourceOptions);
-  } catch (err) {
-    console.error("Transfer fund failed: ", err);
+  } catch (err: any) {
+    return null;
   }
 };

@@ -92,46 +92,24 @@ const RecentTransactions = ({
     {}
   );
 
-  console.log("🎯 RecentTransactions INPUT:", {
-    transactionsReceived: transactions?.length || 0,
-    transactionsType: Array.isArray(transactions),
-    firstTransaction: transactions?.[0],
-    appwriteItemId,
-  });
-
   // Fetch transactions for each account
   useEffect(() => {
     const fetchAccountTransactions = async (accountId: string) => {
       if (accountTransactions[accountId] || loading[accountId]) return;
 
-      console.log("🔍 Fetching transactions for account:", accountId);
       setLoading((prev) => ({ ...prev, [accountId]: true }));
 
       try {
         const accountData = await getAccount({ appwriteItemId: accountId });
-        console.log("📊 Account data for", accountId, ":", {
-          hasData: !!accountData,
-          transactionCount: accountData?.transactions?.length || 0,
-        });
 
         if (accountData?.transactions) {
           setAccountTransactions((prev) => ({
             ...prev,
             [accountId]: accountData.transactions,
           }));
-          console.log(
-            "✅ Transactions set for account:",
-            accountId,
-            "Count:",
-            accountData.transactions.length
-          );
         }
       } catch (error) {
-        console.error(
-          "❌ Error fetching transactions for account:",
-          accountId,
-          error
-        );
+        // Error fetching transactions
       } finally {
         setLoading((prev) => ({ ...prev, [accountId]: false }));
       }
@@ -144,13 +122,11 @@ const RecentTransactions = ({
   }, [accounts]);
 
   const handleTabChange = (accountId: string) => {
-    console.log("🔄 Tab changed to account:", accountId, "resetting to page 1");
     setAccountPages((prev) => ({ ...prev, [accountId]: 1 }));
     router.push(`/reports?id=${accountId}&page=1`);
   };
 
   const handlePageChange = (accountId: string, newPage: number) => {
-    console.log("🔄 Page changed for account:", accountId, "to page:", newPage);
     setAccountPages((prev) => ({ ...prev, [accountId]: newPage }));
   };
 
@@ -198,21 +174,6 @@ const RecentTransactions = ({
             const currentTransactions = accountTransactionsList.slice(
               indexOfFirstTransaction,
               indexOfLastTransaction
-            );
-
-            console.log(
-              "📊 Rendering tab for account:",
-              account.appwriteItemId,
-              {
-                accountName: account.name,
-                transactionCount: accountTransactionsList.length,
-                currentTransactionsCount: currentTransactions.length,
-                currentPage,
-                totalPages,
-                accountPages: accountPages[account.appwriteItemId],
-                isLoading: loading[account.appwriteItemId],
-                isCurrentTab: account.appwriteItemId === appwriteItemId,
-              }
             );
 
             return (

@@ -6,9 +6,8 @@ import { getLoggedInUser } from "@/lib/actions/user.actions";
 import { formatAmount } from "@/lib/utils";
 import React from "react";
 
-const TransactionHistory = async ({
-  searchParams: { id, page },
-}: SearchParamProps) => {
+const TransactionHistory = async ({ searchParams }: SearchParamProps) => {
+  const { id, page } = await searchParams;
   const currentPage = Number(page as string) || 1;
   const loggedIn = await getLoggedInUser();
   const accounts = await getAccounts({ userId: loggedIn.$id });
@@ -23,7 +22,7 @@ const TransactionHistory = async ({
   const indexOfLastTransaction = currentPage * rowsPerPage;
   const indexOfFirstTransaction = indexOfLastTransaction - rowsPerPage;
 
-  const currentTransactions = account?.transactions.slice(
+  const currentTransactions = account.transactions.slice(
     indexOfFirstTransaction,
     indexOfLastTransaction
   );
@@ -46,19 +45,19 @@ const TransactionHistory = async ({
           <div className="transactions-account">
             <div className="flex flex-col gap-2">
               <h2 className="text-18 font-bold text-white">
-                {account?.data.name}
+                {account.data.name}
               </h2>
               <p className="text-14 text-blue-25">
-                {account?.data.officialName}
+                {account.data.officialName}
               </p>
               <p className="text-14 font-semibold tracking-[1.1px] text-white">
-                ●●●● ●●●● ●●●● {account?.data.mask}
+                ●●●● ●●●● ●●●● {account.data.mask}
               </p>
             </div>
             <div className="transactions-account-balance">
               <p className="text-14">Current Balance</p>
               <p className="text-24 text-center font-bold">
-                {formatAmount(account?.data.currentBalance)}
+                {formatAmount(account.data.currentBalance)}
               </p>
             </div>
           </div>

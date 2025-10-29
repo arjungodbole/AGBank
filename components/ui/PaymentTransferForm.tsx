@@ -53,38 +53,16 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
     setIsLoading(true);
 
     try {
-      console.log("🔍 Transfer form data:", {
-        sharableId: data.sharableId,
-        senderBank: data.senderBank,
-        amount: data.amount,
-      });
-
       const receiverAccountId = decryptId(data.sharableId);
-      console.log("🔍 Decrypted receiver account ID:", receiverAccountId);
 
       const receiverBank = await getBankByAccountId({
         accountId: receiverAccountId,
       });
-      console.log("🔍 Receiver bank found:", !!receiverBank, receiverBank?.$id);
-      console.log("🔍 Receiver bank details:", {
-        id: receiverBank?.$id,
-        accountID: receiverBank?.accountID,
-        fundingSourceUrl: receiverBank?.fundingSourceUrl,
-        userId: receiverBank?.userId,
-      });
 
       const senderBank = await getBank({ documentId: data.senderBank });
-      console.log("🔍 Sender bank found:", !!senderBank, senderBank?.$id);
-      console.log("🔍 Sender bank details:", {
-        id: senderBank?.$id,
-        accountID: senderBank?.accountID,
-        fundingSourceUrl: senderBank?.fundingSourceUrl,
-        userId: senderBank?.userId,
-      });
 
       // Check if sender and receiver are the same
       if (senderBank?.$id === receiverBank?.$id) {
-        console.error("❌ Cannot transfer to the same account");
         alert(
           "Cannot transfer to the same account. Please select different accounts."
         );
@@ -94,30 +72,33 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
 
       // Check if both banks were found
       if (!receiverBank) {
-        console.error(
-          "❌ Receiver bank not found for account ID:",
-          receiverAccountId
-        );
         alert("Receiver bank not found. Please check the shareable ID.");
         setIsLoading(false);
         return;
       }
 
       if (!senderBank) {
-        console.error(
-          "❌ Sender bank not found for document ID:",
-          data.senderBank
-        );
         alert("Sender bank not found. Please try again.");
         setIsLoading(false);
         return;
       }
 
-      console.log("🏦 Transfer details:", {
-        senderBank: senderBank.$id,
-        receiverBank: receiverBank.$id,
-        amount: data.amount,
-      });
+      // Check if banks have valid Dwolla funding sources
+      if (!senderBank.fundingSourceUrl) {
+        alert(
+          "Your bank account is not properly linked to Dwolla. Please reconnect your bank account."
+        );
+        setIsLoading(false);
+        return;
+      }
+
+      if (!receiverBank.fundingSourceUrl) {
+        alert(
+          "Receiver's bank account is not properly linked to Dwolla. They need to reconnect their bank account."
+        );
+        setIsLoading(false);
+        return;
+      }
 
       const transferParams = {
         sourceFundingSourceUrl: senderBank.fundingSourceUrl,
@@ -129,7 +110,6 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
       const transfer = await createTransfer(transferParams);
 
       if (!transfer) {
-        console.error("❌ Dwolla transfer failed");
         alert(
           "Transfer failed. Please check your account details and try again."
         );
@@ -137,15 +117,19 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
         return;
       }
 
-      console.log("✅ Dwolla transfer successful, creating transaction record");
-
       // create transfer transaction
       const transaction = {
         name: data.name,
         amount: data.amount,
-        senderId: senderBank.userId.$id,
+        senderId:
+          typeof senderBank.userId === "string"
+            ? senderBank.userId
+            : senderBank.userId.$id,
         senderBankId: senderBank.$id,
-        receiverId: receiverBank.userId.$id,
+        receiverId:
+          typeof receiverBank.userId === "string"
+            ? receiverBank.userId
+            : receiverBank.userId.$id,
         receiverBankId: receiverBank.$id,
         email: data.email,
       };
@@ -153,19 +137,37 @@ const PaymentTransferForm = ({ accounts }: PaymentTransferFormProps) => {
       const newTransaction = await createTransaction(transaction);
 
       if (newTransaction) {
-        console.log("✅ Transaction record created successfully");
         form.reset();
         router.push("/reports");
       } else {
-        console.error("❌ Failed to create transaction record");
-        alert("Transfer completed but failed to save transaction record.");
+        // Transfer succeeded but transaction record failed
+        // Still redirect but inform the user
+        alert(
+          "Transfer completed but failed to save transaction record. Check the terminal for details."
+        );
+        form.reset();
+        router.push("/reports");
       }
     } catch (error) {
-      console.error("❌ Submitting create transfer request failed: ", error);
-      alert("Transfer failed. Please check your details and try again.");
-    }
+      // Extract only the message, don't pass the error object itself
+      let errorMessage = "Unknown error occurred";
+      try {
+        if (error instanceof Error) {
+          errorMessage = error.message;
+        } else if (typeof error === "string") {
+          errorMessage = error;
+        }
+      } catch (e) {
+        // If we can't even extract the message, use default
+        errorMessage = "Transfer failed";
+      }
 
-    setIsLoading(false);
+      alert(
+        `Transfer failed: ${errorMessage}. Please check your details and try again.`
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

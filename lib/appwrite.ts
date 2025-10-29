@@ -27,17 +27,15 @@ export async function createAdminClient() {
     .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT!)
     .setKey(process.env.NEXT_APPWRITE_KEY!);
 
-  
-
   return {
     get account() {
       return new Account(client);
     },
-    get database(){
-        return new Databases(client);
+    get database() {
+      return new Databases(client);
     },
-    get user(){
-        return new Users(client);
+    get user() {
+      return new Users(client);
     }
   };
 }

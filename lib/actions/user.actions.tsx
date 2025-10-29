@@ -32,7 +32,7 @@ export const getUserInfo = async ({ userId }: getUserInfoProps) => {
 
     return parseStringify(user.documents[0]);
   } catch (error) {
-    console.log(error);
+    return null;
   }
 };
 
@@ -52,7 +52,7 @@ export const signIn = async ({ email, password }: signInProps) => {
 
     return parseStringify(user);
   } catch (error) {
-    console.error("Error", error);
+    return null;
   }
 };
 
@@ -71,14 +71,18 @@ export const signUp = async ({ password, ...userData }: SignUpParams) => {
       `${firstName} ${lastName}`
     );
 
-    if (!newUserAccount) throw new Error("Error creating user");
+    if (!newUserAccount) {
+      return null;
+    }
 
     const dwollaCustomerUrl = await createDwollaCustomer({
       ...userData,
       type: "personal",
     });
 
-    if (!dwollaCustomerUrl) throw new Error("Error creating Dwolla customer");
+    if (!dwollaCustomerUrl) {
+      return null;
+    }
 
     const dwollaCustomerId = extractCustomerIdFromUrl(dwollaCustomerUrl);
 
@@ -105,7 +109,7 @@ export const signUp = async ({ password, ...userData }: SignUpParams) => {
 
     return parseStringify(newUser);
   } catch (error) {
-    console.error("Error", error);
+    return null;
   }
 };
 
@@ -152,11 +156,7 @@ export const createLinkToken = async (user: User) => {
 
     return parseStringify({ linkToken: response.data.link_token });
   } catch (error: any) {
-    // Add better error logging to see what Plaid is actually rejecting
-    console.error("❌ Plaid Error Details:", error.response?.data);
-    console.error("❌ Status:", error.response?.status);
-    console.error("❌ Full Error:", error);
-    throw error;
+    return null;
   }
 };
 export const createBankAccount = async ({
@@ -167,15 +167,6 @@ export const createBankAccount = async ({
   fundingSourceUrl,
   shareableId,
 }: createBankAccountProps) => {
-  console.log("📝 Creating bank account with data:", {
-    userId,
-    bankId,
-    accountId: accountID,
-    accessToken: !!accessToken,
-    fundingSourceUrl,
-    shareableId,
-  }); // ← Add this
-
   try {
     const { database } = await createAdminClient();
 
@@ -192,11 +183,9 @@ export const createBankAccount = async ({
         shareableId,
       }
     );
-    console.log("✅ Bank document created successfully:", bankAccount.$id); // ← Add this
     return parseStringify(bankAccount);
   } catch (error) {
-    console.error("❌ Error creating bank document:", error); // ← Add this
-    throw error; // ← Add this
+    return null;
   }
 };
 
@@ -204,28 +193,24 @@ export const exchangePublicToken = async ({
   publicToken,
   user,
 }: exchangePublicTokenProps) => {
-  console.log("🔄 Starting exchangePublicToken..."); // ← Add this
-  console.log("📝 User:", user.$id); // ← Add this
-  console.log("🔑 Public token exists:", !!publicToken); // ← Add this
-
   try {
+    // Check if user has Dwolla customer ID
+    if (!user.dwollaCustomerId) {
+      return null;
+    }
+
     const response = await plaidClient.itemPublicTokenExchange({
       public_token: publicToken,
     });
-    console.log("✅ Plaid exchange successful"); // ← Add this
 
     const accessToken = response.data.access_token;
     const itemId = response.data.item_id;
-    console.log("🔐 Access token received:", !!accessToken); // ← Add this
-    console.log("🏦 Item ID:", itemId); // ← Add this
 
     const accountsResponse = await plaidClient.accountsGet({
       access_token: accessToken,
     });
-    console.log("💳 Accounts response:", accountsResponse.data); // ← Add this
 
     const accountData = accountsResponse.data.accounts[0];
-    console.log("📊 Account data:", accountData); // ← Add this
 
     const request: ProcessorTokenCreateRequest = {
       access_token: accessToken,
@@ -237,18 +222,17 @@ export const exchangePublicToken = async ({
       request
     );
     const processorToken = processorTokenResponse.data.processor_token;
-    console.log("🏭 Processor token created"); // ← Add this
 
     const fundingSourceUrl = await addFundingSource({
       dwollaCustomerId: user.dwollaCustomerId,
       processorToken,
       bankName: accountData.name,
     });
-    console.log("💰 Funding source URL:", fundingSourceUrl); // ← Add this
 
-    if (!fundingSourceUrl) throw Error;
+    if (!fundingSourceUrl) {
+      return null;
+    }
 
-    console.log("🏦 About to create bank account..."); // ← Add this
     const bankAccount = await createBankAccount({
       userId: user.$id,
       bankId: itemId,
@@ -257,7 +241,6 @@ export const exchangePublicToken = async ({
       fundingSourceUrl,
       shareableId: encryptId(accountData.account_id),
     });
-    console.log("✅ Bank account created:", bankAccount); // ← Add this
 
     revalidatePath("/");
 
@@ -265,8 +248,8 @@ export const exchangePublicToken = async ({
       publicTokenExchange: "complete",
     });
   } catch (error) {
-    console.error("❌ Error in exchangePublicToken:", error); // ← Improve this
-    throw error; // ← Add this to see the actual error
+    // Return null instead of throwing to avoid serialization issues
+    return null;
   }
 };
 
@@ -282,7 +265,7 @@ export const getBanks = async ({ userId }: getBanksProps) => {
 
     return parseStringify(banks.documents);
   } catch (error) {
-    console.log(error);
+    return null;
   }
 };
 
@@ -291,11 +274,8 @@ export const getBank = async ({ documentId }: getBankProps) => {
     const { database } = await createAdminClient();
 
     if (!documentId) {
-      console.log("No document ID provided");
       return null;
     }
-
-    console.log("Searching for bank with ID:", documentId);
 
     const bank = await database.listDocuments(
       DATABASE_ID!,
@@ -304,13 +284,11 @@ export const getBank = async ({ documentId }: getBankProps) => {
     );
 
     if (bank.documents.length === 0) {
-      console.log("No bank found with ID:", documentId);
       return null;
     }
 
     return parseStringify(bank.documents[0]);
   } catch (error) {
-    console.error("Error in getBank:", error);
     return null;
   }
 };
@@ -322,7 +300,6 @@ export const getBankByAccountId = async ({
     const { database } = await createAdminClient();
 
     if (!accountId) {
-      console.log("No document ID provided");
       return null;
     }
 
@@ -333,13 +310,11 @@ export const getBankByAccountId = async ({
     );
 
     if (bank.documents.length === 0) {
-      console.log("No bank found with ID:", accountId);
       return null;
     }
 
     return parseStringify(bank.documents[0]);
   } catch (error) {
-    console.error("Error in getBank:", error);
     return null;
   }
 };

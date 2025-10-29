@@ -6,11 +6,19 @@ import React from "react";
 
 const Transfer = async () => {
   const loggedIn = await getLoggedInUser();
+
+  if (!loggedIn) {
+    return <div>Please log in to access this page.</div>;
+  }
+
   const accounts = await getAccounts({ userId: loggedIn.$id });
 
-  if (!accounts) return;
+  if (!accounts || !accounts.data) {
+    return <div>No accounts found. Please connect a bank account first.</div>;
+  }
 
-  const accountsData = accounts?.data;
+  // Explicitly serialize to ensure no Appwrite client objects are passed
+  const accountsData = JSON.parse(JSON.stringify(accounts.data));
   return (
     <section className="home">
       <div className="home-content">
