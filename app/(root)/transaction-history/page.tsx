@@ -16,13 +16,26 @@ const TransactionHistory = async ({ searchParams }: SearchParamProps) => {
   const appwriteItemId = (id as string) || accountsData[0]?.appwriteItemId;
   const account = await getAccount({ appwriteItemId });
 
+  if (!account || !account.data) {
+    return (
+      <section className="home">
+        <div className="home-content">
+          <div className="flex items-center justify-center h-64">
+            <p className="text-gray-500">Account data not available</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const transactions = account.transactions || [];
   const rowsPerPage = 10;
-  const totalPages = Math.ceil(account?.transactions.length / rowsPerPage);
+  const totalPages = Math.ceil(transactions.length / rowsPerPage);
 
   const indexOfLastTransaction = currentPage * rowsPerPage;
   const indexOfFirstTransaction = indexOfLastTransaction - rowsPerPage;
 
-  const currentTransactions = account.transactions.slice(
+  const currentTransactions = transactions.slice(
     indexOfFirstTransaction,
     indexOfLastTransaction
   );
