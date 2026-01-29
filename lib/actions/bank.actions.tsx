@@ -250,36 +250,40 @@ export const getAccounts = async ({ userId }: getAccountsProps) => {
 
     const accounts = await Promise.all(
       banks?.map(async (bank: Bank) => {
-        console.log("Processing bank:", bank.$id);
+        console.log("Processing bank:", bank.$id, "accountID:", bank.accountID);
         console.log("Access token:", bank.accessToken ? "exists" : "missing");
-        console.log(
-          "Access token value:",
-          bank.accessToken?.substring(0, 20) + "..."
-        ); // Show first 20 chars
 
         let accountData, institution;
 
         try {
-          // get each account info from plaid
+          // get account info from plaid
           const accountsResponse = await plaidClient.accountsGet({
             access_token: bank.accessToken,
           });
-          console.log("Plaid accounts response:", accountsResponse.data);
 
-          accountData = accountsResponse.data.accounts[0];
-          console.log("Account data:", accountData);
+          // Find the specific account that matches this bank record's accountID
+          accountData = accountsResponse.data.accounts.find(
+            (acc) => acc.account_id === bank.accountID
+          );
+
+          if (!accountData) {
+            console.log("Account not found for accountID:", bank.accountID);
+            return null;
+          }
+
+          console.log("Found account:", accountData.name, accountData.subtype);
 
           // get institution info from plaid
           institution = await getInstitution({
             institutionId: accountsResponse.data.item.institution_id!,
           });
-          console.log("Institution data:", institution);
         } catch (plaidError) {
           console.log("Plaid API error:", plaidError);
           throw plaidError;
         }
 
-        const account = {
+        // Return the specific account with its correct appwriteItemId
+        return {
           id: accountData.account_id,
           availableBalance: accountData.balances.available!,
           currentBalance: accountData.balances.current!,
@@ -292,17 +296,18 @@ export const getAccounts = async ({ userId }: getAccountsProps) => {
           appwriteItemId: bank.$id,
           shareableId: bank.shareableId,
         };
-
-        return account;
       })
     );
 
-    const totalBanks = accounts.length;
-    const totalCurrentBalance = accounts.reduce((total, account) => {
+    // Filter out any null accounts (failed lookups)
+    const validAccounts = accounts.filter((acc) => acc !== null);
+
+    const totalBanks = validAccounts.length;
+    const totalCurrentBalance = validAccounts.reduce((total, account) => {
       return total + account.currentBalance;
     }, 0);
 
-    return parseStringify({ data: accounts, totalBanks, totalCurrentBalance });
+    return parseStringify({ data: validAccounts, totalBanks, totalCurrentBalance });
   } catch (error) {
     return null;
   }
@@ -327,7 +332,10 @@ export const getAccount = async ({ appwriteItemId }: getAccountProps) => {
       access_token: bank.accessToken,
     });
 
-    const accountData = accountsResponse.data.accounts[0];
+    // Find the specific account matching bank.accountID, or fall back to first account
+    const accountData = accountsResponse.data.accounts.find(
+      (account) => account.account_id === bank.accountID
+    ) || accountsResponse.data.accounts[0];
 
     // get transfer transactions from appwrite
     const transferTransactionsData = await getTransactionsByBankId({

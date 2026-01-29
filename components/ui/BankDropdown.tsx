@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import {
   Select,
@@ -18,23 +18,35 @@ export const BankDropdown = ({
   accounts = [],
   setValue,
   otherStyles,
+  fieldName = "senderBank",
+  label = "Select a bank to display",
+  defaultIndex = 0,
 }: BankDropdownProps) => {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [selected, setSeclected] = useState(accounts[0]);
+  const initialAccount = accounts[defaultIndex] || accounts[0];
+  const [selected, setSelected] = useState(initialAccount);
+
+  // Set initial form value on mount
+  useEffect(() => {
+    if (setValue && initialAccount) {
+      // Use account.id (unique Plaid account ID) for form value
+      setValue(fieldName, initialAccount.id);
+    }
+  }, [setValue, fieldName, initialAccount]);
 
   const handleBankChange = (id: string) => {
-    const account = accounts.find((account) => account.appwriteItemId === id)!;
+    const account = accounts.find((account) => account.id === id)!;
 
-    setSeclected(account);
+    setSelected(account);
 
     if (setValue) {
       // If setValue is provided, we're in a form (like PaymentTransferForm)
-      // Just set the value, don't redirect
-      setValue("senderBank", id);
+      // Use account.id (unique Plaid account ID) for form value
+      setValue(fieldName, account.id);
     } else {
       // If no setValue, we're switching accounts on reports page
-      // Update URL and redirect
+      // Update URL and redirect with account.id
       const newUrl = formUrlQuery({
         params: searchParams.toString(),
         key: "id",
@@ -66,12 +78,12 @@ export const BankDropdown = ({
       >
         <SelectGroup>
           <SelectLabel className="py-2 font-normal text-gray-500">
-            Select a bank to display
+            {label}
           </SelectLabel>
           {accounts.map((account: Account) => (
             <SelectItem
               key={account.id}
-              value={account.appwriteItemId}
+              value={account.id}
               className="cursor-pointer border-t"
             >
               <div className="flex flex-col ">

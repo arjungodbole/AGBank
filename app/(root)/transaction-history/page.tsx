@@ -13,7 +13,9 @@ const TransactionHistory = async ({ searchParams }: SearchParamProps) => {
   const accounts = await getAccounts({ userId: loggedIn.$id });
 
   const accountsData = accounts?.data;
-  const appwriteItemId = (id as string) || accountsData[0]?.appwriteItemId;
+  // Find the account by its Plaid account ID (id param), then get appwriteItemId for API call
+  const selectedAccount = accountsData?.find((acc: Account) => acc.id === id);
+  const appwriteItemId = selectedAccount?.appwriteItemId || accountsData?.[0]?.appwriteItemId;
   const account = await getAccount({ appwriteItemId });
 
   if (!account || !account.data) {

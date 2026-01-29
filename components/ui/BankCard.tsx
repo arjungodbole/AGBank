@@ -12,7 +12,7 @@ const BankCard = ({
   return (
     <div className="flex flex-col">
       <Link
-        href={`/transaction-history/?id=${account.appwriteItemId}`}
+        href={`/transaction-history/?id=${account.id}`}
         className="bank-card"
       >
         <div className="bank-card_content">

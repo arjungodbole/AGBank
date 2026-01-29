@@ -32,7 +32,7 @@ const Home = async ({ searchParams }: SearchParamProps) => {
 
   // If no ID provided, redirect to first account
   if (!id) {
-    const firstAccountId = accounts.data[0]?.appwriteItemId;
+    const firstAccountId = accounts.data[0]?.id; // Use Plaid account ID
     if (firstAccountId) {
       return redirect(`/reports?id=${firstAccountId}`);
     } else {
@@ -42,7 +42,9 @@ const Home = async ({ searchParams }: SearchParamProps) => {
 
   const accountsData = accounts?.data;
 
-  const appwriteItemId = (id as string) || accountsData[0]?.appwriteItemId;
+  // Find the account by its Plaid account ID (id param), then get appwriteItemId for API call
+  const selectedAccount = accountsData.find((acc: Account) => acc.id === id);
+  const appwriteItemId = selectedAccount?.appwriteItemId || accountsData[0]?.appwriteItemId;
 
   const account = await getAccount({ appwriteItemId });
 
@@ -74,7 +76,7 @@ const Home = async ({ searchParams }: SearchParamProps) => {
         <RecentTransactions
           accounts={accountsData}
           transactions={account?.transactions}
-          appwriteItemId={appwriteItemId}
+          appwriteItemId={id as string}
         />
       </div>
 

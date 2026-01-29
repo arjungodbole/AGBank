@@ -7,13 +7,14 @@ import { cn, formUrlQuery } from "@/lib/utils";
 export const BankTabItem = ({ account, appwriteItemId }: BankTabItemProps) => {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const isActive = appwriteItemId === account?.appwriteItemId;
+  // appwriteItemId prop is now actually the current account.id for comparison
+  const isActive = appwriteItemId === account?.id;
 
   const handleBankChange = () => {
     const newUrl = formUrlQuery({
       params: searchParams.toString(),
       key: "id",
-      value: account?.appwriteItemId,
+      value: account?.id, // Use Plaid account ID for unique identification
     });
 
     router.push(newUrl);

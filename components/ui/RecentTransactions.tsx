@@ -92,37 +92,43 @@ const RecentTransactions = ({
     {}
   );
 
-  // Fetch transactions for each account
+  // Fetch transactions for each account (keyed by account.id for uniqueness)
   useEffect(() => {
-    const fetchAccountTransactions = async (accountId: string) => {
-      if (accountTransactions[accountId] || loading[accountId]) return;
+    const fetchAccountTransactions = async (account: Account) => {
+      const uniqueId = account.id; // Use Plaid account ID as unique key
+      if (accountTransactions[uniqueId] || loading[uniqueId]) return;
 
-      setLoading((prev) => ({ ...prev, [accountId]: true }));
+      setLoading((prev) => ({ ...prev, [uniqueId]: true }));
 
       try {
-        const accountData = await getAccount({ appwriteItemId: accountId });
+        const accountData = await getAccount({ appwriteItemId: account.appwriteItemId });
 
         if (accountData?.transactions) {
           setAccountTransactions((prev) => ({
             ...prev,
-            [accountId]: accountData.transactions,
+            [uniqueId]: accountData.transactions,
           }));
         }
       } catch (error) {
         // Error fetching transactions
       } finally {
-        setLoading((prev) => ({ ...prev, [accountId]: false }));
+        setLoading((prev) => ({ ...prev, [uniqueId]: false }));
       }
     };
 
     // Fetch transactions for all accounts
     accounts.forEach((account: Account) => {
-      fetchAccountTransactions(account.appwriteItemId);
+      fetchAccountTransactions(account);
     });
   }, [accounts]);
 
+  // Find the current account based on account.id from URL (appwriteItemId prop is actually account.id now)
+  const currentAccount = accounts.find((a: Account) => a.id === appwriteItemId) || accounts[0];
+  const currentAccountId = currentAccount?.id;
+
   const handleTabChange = (accountId: string) => {
     setAccountPages((prev) => ({ ...prev, [accountId]: 1 }));
+    // Use account.id directly in the URL
     router.push(`/reports?id=${accountId}&page=1`);
   };
 
@@ -143,31 +149,31 @@ const RecentTransactions = ({
           </Link>
         </header>
         <Tabs
-          defaultValue={appwriteItemId}
-          value={appwriteItemId} // ✅ Add controlled value
-          onValueChange={handleTabChange} // ✅ Add this handler
+          defaultValue={currentAccountId}
+          value={currentAccountId}
+          onValueChange={handleTabChange}
           className="w-full"
         >
           <TabsList className="recent-transactions-tablist">
             {accounts.map((account: Account) => (
-              <TabsTrigger key={account.id} value={account.appwriteItemId}>
+              <TabsTrigger key={account.id} value={account.id}>
                 <BankTabItem
                   key={account.id}
                   account={account}
-                  appwriteItemId={appwriteItemId}
+                  appwriteItemId={currentAccountId}
                 />
               </TabsTrigger>
             ))}
           </TabsList>
           {accounts.map((account: Account) => {
             const accountTransactionsList =
-              accountTransactions[account.appwriteItemId] || [];
+              accountTransactions[account.id] || [];
             const rowsPerPage = 10;
             const totalPages = Math.ceil(
               accountTransactionsList.length / rowsPerPage
             );
             // Use account-specific page state, default to 1
-            const currentPage = accountPages[account.appwriteItemId] || 1;
+            const currentPage = accountPages[account.id] || 1;
             const indexOfLastTransaction = currentPage * rowsPerPage;
             const indexOfFirstTransaction =
               indexOfLastTransaction - rowsPerPage;
@@ -178,16 +184,16 @@ const RecentTransactions = ({
 
             return (
               <TabsContent
-                value={account.appwriteItemId}
+                value={account.id}
                 key={account.id}
                 className="space-y-4"
               >
                 <BankInfo
                   account={account}
-                  appwriteItemId={appwriteItemId}
+                  appwriteItemId={account.appwriteItemId}
                   type="full"
                 />
-                {loading[account.appwriteItemId] ? (
+                {loading[account.id] ? (
                   <div className="flex items-center justify-center p-4">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
                   </div>
@@ -197,7 +203,7 @@ const RecentTransactions = ({
                     {totalPages > 1 && (
                       <div className="my-4 w-full">
                         <AccountPagination
-                          accountId={account.appwriteItemId}
+                          accountId={account.id}
                           totalPages={totalPages}
                           currentPage={currentPage}
                           onPageChange={handlePageChange}

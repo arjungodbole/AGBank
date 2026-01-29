@@ -31,7 +31,7 @@ const MyBank = async () => {
             {accountsData &&
               accountsData.map((account: Account) => (
                 <BankCard
-                  key={account.appwriteItemId}
+                  key={account.id}
                   account={account}
                   userName={loggedIn?.firstName}
                   showBalance={true}

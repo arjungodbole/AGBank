@@ -197,6 +197,9 @@ declare interface BankDropdownProps {
   accounts: Account[];
   setValue?: UseFormSetValue<any>;
   otherStyles?: string;
+  fieldName?: string;
+  label?: string;
+  defaultIndex?: number;
 }
 
 declare interface BankTabItemProps {
@@ -286,8 +289,8 @@ declare interface CreateTransactionProps {
   amount: string;
   senderId: string;
   senderBankId: string;
-  receiverId: string;
-  receiverBankId: string;
+  recieverId: string; // Matches Appwrite schema spelling
+  recieverBankId: string; // Matches Appwrite schema spelling
   email: string;
 }
 
