@@ -237,19 +237,47 @@ export const getAccounts = async ({ userId }: getAccountsProps) => {
   try {
     // get banks from db
     const banks = await getBanks({ userId });
+    console.log("Banks from DB in getAccounts:", banks);
+
+    if (!banks || banks.length === 0) {
+      console.log("No banks found for user:", userId);
+      return parseStringify({
+        data: [],
+        totalBanks: 0,
+        totalCurrentBalance: 0,
+      });
+    }
 
     const accounts = await Promise.all(
       banks?.map(async (bank: Bank) => {
-        // get each account info from plaid
-        const accountsResponse = await plaidClient.accountsGet({
-          access_token: bank.accessToken,
-        });
-        const accountData = accountsResponse.data.accounts[0];
+        console.log("Processing bank:", bank.$id);
+        console.log("Access token:", bank.accessToken ? "exists" : "missing");
+        console.log(
+          "Access token value:",
+          bank.accessToken?.substring(0, 20) + "..."
+        ); // Show first 20 chars
 
-        // get institution info from plaid
-        const institution = await getInstitution({
-          institutionId: accountsResponse.data.item.institution_id!,
-        });
+        let accountData, institution;
+
+        try {
+          // get each account info from plaid
+          const accountsResponse = await plaidClient.accountsGet({
+            access_token: bank.accessToken,
+          });
+          console.log("Plaid accounts response:", accountsResponse.data);
+
+          accountData = accountsResponse.data.accounts[0];
+          console.log("Account data:", accountData);
+
+          // get institution info from plaid
+          institution = await getInstitution({
+            institutionId: accountsResponse.data.item.institution_id!,
+          });
+          console.log("Institution data:", institution);
+        } catch (plaidError) {
+          console.log("Plaid API error:", plaidError);
+          throw plaidError;
+        }
 
         const account = {
           id: accountData.account_id,
