@@ -10,9 +10,15 @@ const {
 
 const GAMES_COLLECTION_ID = process.env.GAMES_COLLECTION_ID!;
 
+interface ChipDenomination {
+  color: string;
+  value: number;
+}
+
 interface CreateGroupParams {
   createdBy: string;
-  name?: string; // Made optional
+  name?: string;
+  chipDenominations?: ChipDenomination[];
 }
 
 interface JoinGroupParams {
@@ -21,7 +27,7 @@ interface JoinGroupParams {
 }
 
 // Your existing function
-export async function createGroup({ createdBy, name }: CreateGroupParams) {
+export async function createGroup({ createdBy, name, chipDenominations = [] }: CreateGroupParams) {
   try {
     const { database } = await createAdminClient();
     
@@ -40,6 +46,7 @@ export async function createGroup({ createdBy, name }: CreateGroupParams) {
         hostUserId: createdBy,
         status: 'active',
         createdAt: new Date().toISOString(),
+        chipDenominations: JSON.stringify(chipDenominations),
       }
     );
     
@@ -47,10 +54,12 @@ export async function createGroup({ createdBy, name }: CreateGroupParams) {
       id: groupId,
       name: groupName,
       createdBy,
-      referralCode: groupId, // Using groupId as referral code
+      referralCode: groupId,
+      chipDenominations,
       createdAt: new Date(),
     };
   } catch (error) {
+    console.error(error);
     throw new Error("Failed to create group. Please try again.");
   }
 }
@@ -58,21 +67,26 @@ export async function createGroup({ createdBy, name }: CreateGroupParams) {
 // Server action that works with FormData from your form
 export async function createGroupFromForm(formData: FormData) {
   const name = formData.get("name") as string;
-  
-  // TODO: Get the actual user ID from your authentication system
-  // For now, using a placeholder - replace with actual user ID
-  const user = await getLoggedInUser(); 
+  const chipDenominationsRaw = formData.get("chipDenominations") as string;
+  console.log("chipDenominationsRaw:", chipDenominationsRaw);
+  const chipDenominations = chipDenominationsRaw
+    ? JSON.parse(chipDenominationsRaw)
+    : [];
+  console.log("chipDenominations:", chipDenominations);
+
+  const user = await getLoggedInUser();
   const createdBy = user.$id;
 
-  
   try {
-    const group = await createGroup({ 
-      createdBy, 
-      name: name?.trim() || undefined // Pass undefined if no name provided
+    const group = await createGroup({
+      createdBy,
+      name: name?.trim() || undefined,
+      chipDenominations,
     });
-    
+
     return group;
   } catch (error) {
+    console.error(error);
     throw new Error("Failed to create group. Please try again.");
   }
 }

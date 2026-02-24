@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import ChipConfig from "./ChipConfig";
 
 export default function CreateGroupForm({
   action,
@@ -13,6 +14,9 @@ export default function CreateGroupForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [chipDenominations, setChipDenominations] = useState<
+    { color: string; value: number }[]
+  >([]);
   const router = useRouter();
 
   return (
@@ -23,6 +27,7 @@ export default function CreateGroupForm({
         setSuccess(false);
 
         try {
+          formData.append("chipDenominations", JSON.stringify(chipDenominations));
           const result = await action(formData);
           setSuccess(true);
 
@@ -61,6 +66,10 @@ export default function CreateGroupForm({
           Group created successfully! {redirectOnSuccess && "Redirecting..."}
         </div>
       )}
+
+      <div className="mb-4">
+        <ChipConfig onChange={setChipDenominations} />
+      </div>
 
       <button
         type="submit"

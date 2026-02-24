@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import ChipScanner from "@/components/ui/ChipScanner";
 
 interface Player {
   $id: string;
@@ -23,6 +24,7 @@ interface GameState {
   status: "active" | "ended";
   players: Player[];
   totalPool: number;
+  chipDenominations?: { color: string; value: number }[];
 }
 
 interface PageProps {
@@ -43,6 +45,7 @@ export default function MultiplayerGroupPage({ params }: PageProps) {
   const [userName, setUserName] = useState("");
   const [showJoinForm, setShowJoinForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showScanner, setShowScanner] = useState(false);
 
   // Initialize user with real authentication
   useEffect(() => {
@@ -192,7 +195,16 @@ export default function MultiplayerGroupPage({ params }: PageProps) {
     }
   };
 
-  const handleCashOut = async () => {
+  const handleCashOut = () => {
+    console.log("chipDenominations:", gameState?.chipDenominations);
+    if (gameState?.chipDenominations?.length) {
+      setShowScanner(true);
+    } else {
+      handleManualCashOut();
+    }
+  };
+
+  const handleManualCashOut = async () => {
     const cashOutValue = prompt("How much are you cashing out for?");
     if (cashOutValue === null) return;
 
@@ -202,6 +214,10 @@ export default function MultiplayerGroupPage({ params }: PageProps) {
       return;
     }
 
+    await submitCashOut(amount);
+  };
+
+  const submitCashOut = async (amount: number) => {
     setLoading(true);
     setError(null);
 
@@ -682,6 +698,17 @@ export default function MultiplayerGroupPage({ params }: PageProps) {
           </Link>
         </div>
       </div>
+
+      {showScanner && gameState.chipDenominations && (
+        <ChipScanner
+          denominations={gameState.chipDenominations}
+          onResult={(total) => {
+            setShowScanner(false);
+            submitCashOut(total);
+          }}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
     </div>
   );
 }

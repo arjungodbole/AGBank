@@ -245,6 +245,7 @@ export async function GET(
       status: game.status,
       players,
       totalPool,
+      chipDenominations: JSON.parse(game.chipDenominations || "[]")
     });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

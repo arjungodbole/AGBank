@@ -67,6 +67,7 @@ export async function GET(
             status: game.status,
             players,
             totalPool,
+            chipDenominations: JSON.parse(game.chipDenominations || "[]")
           };
 
           const data = `data: ${JSON.stringify(gameState)}\n\n`;

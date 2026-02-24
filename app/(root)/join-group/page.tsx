@@ -16,7 +16,17 @@ const handleCreateGroup = async (formData: FormData) => {
   const user = await getLoggedInUser();
   if (!user?.$id) throw new Error("You must be logged in to create a group.");
 
-  const group = await createGroup({ createdBy: user.$id });
+  const name = formData.get("name") as string;
+  const chipDenominationsRaw = formData.get("chipDenominations") as string;
+  const chipDenominations = chipDenominationsRaw
+    ? JSON.parse(chipDenominationsRaw)
+    : [];
+
+  const group = await createGroup({
+    createdBy: user.$id,
+    name: name?.trim() || undefined,
+    chipDenominations,
+  });
   redirect(`/groups/${group.id}`);
 };
 
