@@ -71,6 +71,7 @@ const AuthForm = ({ type }: { type: string }) => {
         if (response) router.push("/reports");
       }
     } catch (error) {
+      console.error("Sign up error:", error);
     } finally {
       setisLoading(false);
     }
@@ -109,7 +110,14 @@ const AuthForm = ({ type }: { type: string }) => {
       ) : (
         <>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <form
+              onSubmit={(e) => {
+                console.log("form submitted");
+                console.log("form errors:", form.formState.errors);
+                form.handleSubmit(onSubmit)(e);
+              }}
+              className="space-y-8"
+            >
               {type === "sign-up" && (
                 <>
                   <div className="flex gap-4">

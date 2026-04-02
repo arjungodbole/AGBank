@@ -43,6 +43,12 @@ export const createFundingSource = async (
     
     return location;
   } catch (err: any) {
+    if(err.body?.code === "DuplicateResource"){
+      const existingUrl = err.body._links?.about?.href;                                                                                                                    
+      if (existingUrl) {                                                                                                                                                   
+      return existingUrl;                                                                                                                                                
+    }             
+    }
     return null;
   }
 };
