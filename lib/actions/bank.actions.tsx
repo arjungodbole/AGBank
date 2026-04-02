@@ -442,8 +442,8 @@ export const getTransactions = async ({
     // ✅ Get much wider date range
     const response = await plaidClient.transactionsGet({
       access_token: accessToken,
-      start_date: "2023-01-01", // ✅ Go back further
-      end_date: "2025-12-31", // ✅ Future-proof end date
+      start_date: "2023-01-01",
+      end_date: new Date().toISOString().split("T")[0],
       //count: 500,               // ✅ Get up to 500 transactions
       //offset: 0,
     });

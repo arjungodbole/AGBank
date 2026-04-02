@@ -43,6 +43,7 @@ export const createFundingSource = async (
     
     return location;
   } catch (err: any) {
+    console.log("createFundingSource error:", err.body || err.message || err);
     if(err.body?.code === "DuplicateResource"){
       const existingUrl = err.body._links?.about?.href;                                                                                                                    
       if (existingUrl) {                                                                                                                                                   
@@ -162,6 +163,7 @@ export const addFundingSource = async ({
     };
     return await createFundingSource(fundingSourceOptions);
   } catch (err: any) {
+    console.log("addFundingSource error:", err.body || err.message || err);
     return null;
   }
 };
