@@ -1,6 +1,5 @@
 import HeaderBox from "@/components/ui/HeaderBox";
 
-import { getAccounts } from "@/lib/actions/bank.actions";
 import { getLoggedInUser } from "@/lib/actions/user.actions";
 import {
   createGroup,
@@ -47,8 +46,7 @@ const handleJoinGroup = async (formData: FormData) => {
 
 const scan_chips = async () => {
   const loggedIn = await getLoggedInUser();
-  const accounts = await getAccounts({ userId: loggedIn.$id });
-  const accountsData = accounts?.data;
+  if (!loggedIn?.$id) redirect("/sign-in");
 
   return (
     <section className="home">

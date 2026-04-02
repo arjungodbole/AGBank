@@ -3,10 +3,12 @@ import HeaderBox from "@/components/ui/HeaderBox";
 import RightSideBar from "@/components/ui/RightSideBar";
 import { getAccounts } from "@/lib/actions/bank.actions";
 import { getLoggedInUser } from "@/lib/actions/user.actions";
+import { redirect } from "next/navigation";
 import React from "react";
 
 const MyBank = async () => {
   const loggedIn = await getLoggedInUser();
+  if (!loggedIn?.$id) redirect("/sign-in");
   const accounts = await getAccounts({ userId: loggedIn.$id });
 
   if (!accounts) return;
