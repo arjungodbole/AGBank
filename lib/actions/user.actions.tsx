@@ -1,7 +1,5 @@
 "use server";
 
-import { ID, Query } from "node-appwrite";
-import { createAdminClient, createSessionClient } from "../appwrite";
 import { cookies } from "next/headers";
 import { encryptId, extractCustomerIdFromUrl, parseStringify } from "../utils";
 import {
@@ -13,24 +11,29 @@ import {
 import { plaidClient } from "@/lib/plaid";
 import { revalidatePath } from "next/cache";
 import { addFundingSource, createDwollaCustomer } from "./dwolla.actions";
+import { prisma } from "@/lib/prisma";
+import bcrypt from "bcryptjs";
 
-const {
-  APPWRITE_DATABASE_ID: DATABASE_ID,
-  APPWRITE_USER_COLLECTION_ID: USER_COLLECTION_ID,
-  APPWRITE_BANK_COLLECTION_ID: BANK_COLLECTION_ID,
-} = process.env;
+const SESSION_COOKIE = "appwrite-session";
+
+// Compatibility shim: components still read `$id`, so mirror `id` -> `$id`.
+const withId = (row: any) => ({ ...row, $id: row.id });
+
+// Create a session row and store its id in the cookie.
+const createSession = async (userId: string) => {
+  const session = await prisma.session.create({ data: { userId } });
+  (await cookies()).set(SESSION_COOKIE, session.id, {
+    path: "/",
+    httpOnly: true,
+    sameSite: "strict",
+    secure: true,
+  });
+};
 
 export const getUserInfo = async ({ userId }: getUserInfoProps) => {
   try {
-    const { database } = await createAdminClient();
-
-    const user = await database.listDocuments(
-      DATABASE_ID!,
-      USER_COLLECTION_ID!,
-      [Query.equal("userId", [userId])]
-    );
-
-    return parseStringify(user.documents[0]);
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    return user ? withId(user) : null;
   } catch (error) {
     return null;
   }
@@ -38,19 +41,15 @@ export const getUserInfo = async ({ userId }: getUserInfoProps) => {
 
 export const signIn = async ({ email, password }: signInProps) => {
   try {
-    const { account } = await createAdminClient();
-    const session = await account.createEmailPasswordSession(email, password);
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return null;
 
-    (await cookies()).set("appwrite-session", session.secret, {
-      path: "/",
-      httpOnly: true,
-      sameSite: "strict",
-      secure: true,
-    });
+    const passwordMatches = await bcrypt.compare(password, user.password);
+    if (!passwordMatches) return null;
 
-    const user = await getUserInfo({ userId: session.userId });
+    await createSession(user.id);
 
-    return parseStringify(user);
+    return withId(user);
   } catch (error) {
     return null;
   }
@@ -59,22 +58,7 @@ export const signIn = async ({ email, password }: signInProps) => {
 export const signUp = async ({ password, ...userData }: SignUpParams) => {
   const { email, firstName, lastName } = userData;
 
-  let newUserAccount;
-
   try {
-    const { account, database } = await createAdminClient();
-
-    newUserAccount = await account.create(
-      ID.unique(),
-      email,
-      password,
-      `${firstName} ${lastName}`
-    );
-
-    if (!newUserAccount) {
-      return null;
-    }
-
     const dwollaCustomerUrl = await createDwollaCustomer({
       ...userData,
       type: "personal",
@@ -86,44 +70,44 @@ export const signUp = async ({ password, ...userData }: SignUpParams) => {
 
     const dwollaCustomerId = extractCustomerIdFromUrl(dwollaCustomerUrl);
 
-    const newUser = await database.createDocument(
-      DATABASE_ID!,
-      USER_COLLECTION_ID!,
-      ID.unique(),
-      {
-        ...userData,
-        userId: newUserAccount.$id,
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = await prisma.user.create({
+      data: {
+        email,
+        firstName,
+        lastName,
+        password: hashedPassword,
         dwollaCustomerId,
         dwollaCustomerUrl,
-      }
-    );
-
-    const session = await account.createEmailPasswordSession(email, password);
-
-    (await cookies()).set("appwrite-session", session.secret, {
-      path: "/",
-      httpOnly: true,
-      sameSite: "strict",
-      secure: true,
+      },
     });
 
-    return parseStringify(newUser);
+    await createSession(newUser.id);
+
+    return withId(newUser);
   } catch (error) {
     console.error("signUp server error:", error);
     return null;
   }
 };
 
-// ... your initilization functions
-
 export async function getLoggedInUser() {
   try {
-    const { account } = await createSessionClient();
-    const result = await account.get();
+    const sessionId = (await cookies()).get(SESSION_COOKIE)?.value;
+    if (!sessionId) return null;
 
-    const user = await getUserInfo({ userId: result.$id });
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+    });
+    if (!session) return null;
 
-    return parseStringify(user);
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+    });
+    if (!user) return null;
+
+    return withId(user);
   } catch (error) {
     return null;
   }
@@ -131,11 +115,14 @@ export async function getLoggedInUser() {
 
 export const logoutAccount = async () => {
   try {
-    const { account } = await createSessionClient();
+    const cookieStore = await cookies();
+    const sessionId = cookieStore.get(SESSION_COOKIE)?.value;
 
-    (await cookies()).delete("appwrite-session");
+    if (sessionId) {
+      await prisma.session.delete({ where: { id: sessionId } }).catch(() => {});
+    }
 
-    await account.deleteSession("current");
+    cookieStore.delete(SESSION_COOKIE);
   } catch (error) {
     return null;
   }
@@ -169,22 +156,17 @@ export const createBankAccount = async ({
   shareableId,
 }: createBankAccountProps) => {
   try {
-    const { database } = await createAdminClient();
-
-    const bankAccount = await database.createDocument(
-      DATABASE_ID!,
-      BANK_COLLECTION_ID!,
-      ID.unique(),
-      {
+    const bankAccount = await prisma.bank.create({
+      data: {
         userId,
         bankId,
-        accountID, // ← Make sure this matches your Appwrite field name
+        accountId: accountID, // column: incoming variable
         accessToken,
         fundingSourceUrl,
         shareableId,
-      }
-    );
-    return parseStringify(bankAccount);
+      },
+    });
+    return bankAccount;
   } catch (error) {
     return null;
   }
@@ -287,17 +269,17 @@ export const exchangePublicToken = async ({
   }
 };
 
+// Shim a bank row to the shape components expect ($id + accountID).
+const shapeBank = (bank: any) => ({
+  ...bank,
+  $id: bank.id,
+  accountID: bank.accountId,
+});
+
 export const getBanks = async ({ userId }: getBanksProps) => {
   try {
-    const { database } = await createAdminClient();
-
-    const banks = await database.listDocuments(
-      DATABASE_ID!,
-      BANK_COLLECTION_ID!,
-      [Query.equal("userId", [userId])]
-    );
-
-    return parseStringify(banks.documents);
+    const banks = await prisma.bank.findMany({ where: { userId } });
+    return banks.map(shapeBank);
   } catch (error) {
     return null;
   }
@@ -305,23 +287,8 @@ export const getBanks = async ({ userId }: getBanksProps) => {
 
 export const getBank = async ({ documentId }: getBankProps) => {
   try {
-    const { database } = await createAdminClient();
-
-    if (!documentId) {
-      return null;
-    }
-
-    const bank = await database.listDocuments(
-      DATABASE_ID!,
-      BANK_COLLECTION_ID!,
-      [Query.equal("$id", documentId)]
-    );
-
-    if (bank.documents.length === 0) {
-      return null;
-    }
-
-    return parseStringify(bank.documents[0]);
+    const bank = await prisma.bank.findUnique({ where: { id: documentId } });
+    return bank ? shapeBank(bank) : null;
   } catch (error) {
     return null;
   }
@@ -331,23 +298,8 @@ export const getBankByAccountId = async ({
   accountId,
 }: getBankByAccountIdProps) => {
   try {
-    const { database } = await createAdminClient();
-
-    if (!accountId) {
-      return null;
-    }
-
-    const bank = await database.listDocuments(
-      DATABASE_ID!,
-      BANK_COLLECTION_ID!,
-      [Query.equal("accountID", accountId)]
-    );
-
-    if (bank.documents.length === 0) {
-      return null;
-    }
-
-    return parseStringify(bank.documents[0]);
+    const bank = await prisma.bank.findFirst({ where: { accountId } });
+    return bank ? shapeBank(bank) : null;
   } catch (error) {
     return null;
   }

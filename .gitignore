@@ -49,3 +49,9 @@ next-env.d.ts
 /.claude
 
 __pycache__/
+/lib/generated/prisma
+
+# Prisma / SQLite local database
+*.db
+*.db-journal
+prisma/dev.db*

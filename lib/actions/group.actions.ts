@@ -1,14 +1,7 @@
 "use server";
 
-import { ID,Query } from "node-appwrite";
-import { createAdminClient } from "../appwrite";
+import { prisma } from "@/lib/prisma";
 import { getLoggedInUser } from "./user.actions";
-
-const {
-  APPWRITE_DATABASE_ID: DATABASE_ID,
-} = process.env;
-
-const GAMES_COLLECTION_ID = process.env.GAMES_COLLECTION_ID!;
 
 interface ChipDenomination {
   color: string;
@@ -29,27 +22,22 @@ interface JoinGroupParams {
 // Your existing function
 export async function createGroup({ createdBy, name, chipDenominations = [] }: CreateGroupParams) {
   try {
-    const { database } = await createAdminClient();
-    
     // Use default name if none provided
     const groupName = name || "Poker Game";
     const groupId = Math.random().toString(36).slice(2, 10);
-    
-    // Create game in Appwrite
-    const game = await database.createDocument(
-      DATABASE_ID!,
-      GAMES_COLLECTION_ID,
-      ID.unique(),
-      {
+
+    // Create game in SQL
+    const game = await prisma.game.create({
+      data: {
         groupId: groupId,
         name: groupName,
         hostUserId: createdBy,
         status: 'active',
         createdAt: new Date().toISOString(),
         chipDenominations: JSON.stringify(chipDenominations),
-      }
-    );
-    
+      },
+    });
+
     return {
       id: groupId,
       name: groupName,
@@ -93,21 +81,15 @@ export async function createGroupFromForm(formData: FormData) {
 
 export async function joinGroupWithReferral({ userId, referralCode }: JoinGroupParams) {
   try {
-    const { database } = await createAdminClient();
-    
     // Look up the game by groupId (which is used as referral code)
-    const gamesResponse = await database.listDocuments(
-      DATABASE_ID!,
-      GAMES_COLLECTION_ID,
-      [Query.equal('groupId', referralCode)]
-    );
-    
-    if (gamesResponse.documents.length === 0) {
+    const game = await prisma.game.findFirst({
+      where: { groupId: referralCode },
+    });
+
+    if (!game) {
       throw new Error("Invalid referral code. Game not found.");
     }
-    
-    const game = gamesResponse.documents[0];
-    
+
     if (game.status !== 'active') {
       throw new Error("This game has ended and is no longer accepting players.");
     }

@@ -1,16 +1,4 @@
-import { Client, Databases, Query } from 'node-appwrite';
-
-const DATABASE_ID = process.env.APPWRITE_DATABASE_ID!;
-const GAMES_COLLECTION_ID = process.env.GAMES_COLLECTION_ID!;
-const PLAYERS_COLLECTION_ID = process.env.PLAYERS_COLLECTION_ID!;
-
-// Create appwrite client and databases instance
-const client = new Client()
-  .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
-  .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT!)
-  .setKey(process.env.NEXT_APPWRITE_KEY!);
-
-const databases = new Databases(client);
+import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: Request,
@@ -23,27 +11,21 @@ export async function GET(
       const sendUpdate = async () => {
         try {
           // Get game
-          const gamesResponse = await databases.listDocuments(
-            DATABASE_ID,
-            GAMES_COLLECTION_ID,
-            [Query.equal('groupId', groupId)]
-          );
+          const game: any = await prisma.game.findFirst({
+            where: { groupId },
+          });
 
-          if (gamesResponse.documents.length === 0) {
+          if (!game) {
             controller.error(new Error('Game not found'));
             return;
           }
 
-          const game: any = gamesResponse.documents[0];
-
           // Get players
-          const playersResponse = await databases.listDocuments(
-            DATABASE_ID,
-            PLAYERS_COLLECTION_ID,
-            [Query.equal('gameId', game.$id)]
-          );
+          const playerRows = await prisma.player.findMany({
+            where: { gameId: game.id },
+          });
 
-          const players = playersResponse.documents.map((player: any) => ({
+          const players = playerRows.map((player: any) => ({
             ...player,
             buyIns: JSON.parse(player.buyIns || '[]'),
             cashOuts: JSON.parse(player.cashOuts || '[]'),
@@ -60,7 +42,7 @@ export async function GET(
           }, 0);
 
           const gameState = {
-            id: game.$id,
+            id: game.id,
             groupId: game.groupId,
             name: game.name,
             hostUserId: game.hostUserId,

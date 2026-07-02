@@ -1,32 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Client, Databases, Query, type Models } from "node-appwrite";
 
+import { prisma } from "@/lib/prisma";
 import { createTransfer as createDwollaTransfer } from "@/lib/actions/dwolla.actions";
 import { createTransaction } from "@/lib/actions/transaction.actions";
 import { getBanks } from "@/lib/actions/user.actions";
 
-const DATABASE_ID = process.env.APPWRITE_DATABASE_ID!;
-const GAMES_COLLECTION_ID = process.env.GAMES_COLLECTION_ID!;
-const PLAYERS_COLLECTION_ID = process.env.PLAYERS_COLLECTION_ID!;
 const SETTLEMENT_NOTE = "Group session settlement";
 
-// Create appwrite client and databases instance
-const client = new Client()
-  .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
-  .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT!)
-  .setKey(process.env.NEXT_APPWRITE_KEY!);
-
-const databases = new Databases(client);
-
-type PlayerDocument = Models.Document & {
+type PlayerState = {
+  id: string;
   userId: string;
   userName: string;
   status: string;
-  buyIns: string;
-  cashOuts: string;
-};
-
-type PlayerState = PlayerDocument & {
   buyIns: Array<{ amount: number }>;
   cashOuts: Array<{ amount: number }>;
 };
@@ -45,25 +30,12 @@ type TransferLog = {
   reason?: string;
 };
 
-const isPlayerDocument = (doc: Models.Document): doc is PlayerDocument =>
-  typeof doc.userId === "string" &&
-  typeof doc.userName === "string" &&
-  typeof doc.status === "string" &&
-  typeof doc.buyIns === "string" &&
-  typeof doc.cashOuts === "string";
-
-const parsePlayerDocuments = (docs: Models.Document[]): PlayerState[] =>
-  docs.map((doc) => {
-    if (!isPlayerDocument(doc)) {
-      throw new Error("Invalid player document returned by Appwrite");
-    }
-
-    return {
-      ...doc,
-      buyIns: JSON.parse(doc.buyIns || "[]"),
-      cashOuts: JSON.parse(doc.cashOuts || "[]"),
-    };
-  });
+const parsePlayerDocuments = (docs: any[]): PlayerState[] =>
+  docs.map((doc) => ({
+    ...doc,
+    buyIns: JSON.parse(doc.buyIns || "[]"),
+    cashOuts: JSON.parse(doc.cashOuts || "[]"),
+  }));
 
 const sumEntries = (entries: Array<{ amount: number }>): number =>
   entries.reduce((sum, entry) => sum + Number(entry?.amount ?? 0), 0);
@@ -102,9 +74,9 @@ const recordSettlementTransaction = async (
     name: SETTLEMENT_NOTE,
     amount,
     senderId: sender.player.userId,
-    senderBankId: sender.bank.$id,
-    receiverId: receiver.player.userId,
-    receiverBankId: receiver.bank.$id,
+    senderBankId: sender.bank.id,
+    recieverId: receiver.player.userId,
+    recieverBankId: receiver.bank.id,
     email: "settlements@agb.bank",
   });
 };
@@ -208,26 +180,20 @@ export async function GET(
     const { groupId } = await params;
 
     // Get game
-    const gamesResponse = await databases.listDocuments(
-      DATABASE_ID,
-      GAMES_COLLECTION_ID,
-      [Query.equal("groupId", groupId)]
-    );
+    const game = await prisma.game.findFirst({
+      where: { groupId },
+    });
 
-    if (gamesResponse.documents.length === 0) {
+    if (!game) {
       return NextResponse.json({ error: "Game not found" }, { status: 404 });
     }
 
-    const game: any = gamesResponse.documents[0];
-
     // Get players
-    const playersResponse = await databases.listDocuments(
-      DATABASE_ID,
-      PLAYERS_COLLECTION_ID,
-      [Query.equal("gameId", game.$id)]
-    );
+    const playerRows = await prisma.player.findMany({
+      where: { gameId: game.id },
+    });
 
-    const players = parsePlayerDocuments(playersResponse.documents);
+    const players = parsePlayerDocuments(playerRows);
 
     // Calculate total pool
     const totalPool = players.reduce((sum: number, player: PlayerState) => {
@@ -238,14 +204,14 @@ export async function GET(
     }, 0);
 
     return NextResponse.json({
-      id: game.$id,
+      id: game.id,
       groupId: game.groupId,
       name: game.name,
       hostUserId: game.hostUserId,
       status: game.status,
       players,
       totalPool,
-      chipDenominations: JSON.parse(game.chipDenominations || "[]")
+      chipDenominations: JSON.parse(game.chipDenominations || "[]"),
     });
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -262,17 +228,13 @@ export async function PATCH(
 
     if (action === "end_session") {
       // Get game
-      const gamesResponse = await databases.listDocuments(
-        DATABASE_ID,
-        GAMES_COLLECTION_ID,
-        [Query.equal("groupId", groupId)]
-      );
+      const game = await prisma.game.findFirst({
+        where: { groupId },
+      });
 
-      if (gamesResponse.documents.length === 0) {
+      if (!game) {
         return NextResponse.json({ error: "Game not found" }, { status: 404 });
       }
-
-      const game: any = gamesResponse.documents[0];
 
       if (game.hostUserId !== hostUserId) {
         return NextResponse.json(
@@ -281,25 +243,21 @@ export async function PATCH(
         );
       }
 
-      const playersResponse = await databases.listDocuments(
-        DATABASE_ID,
-        PLAYERS_COLLECTION_ID,
-        [Query.equal("gameId", game.$id)]
-      );
+      const playerRows = await prisma.player.findMany({
+        where: { gameId: game.id },
+      });
 
-      const players = parsePlayerDocuments(playersResponse.documents);
+      const players = parsePlayerDocuments(playerRows);
 
       const transfers = await settleBalances(players);
 
-      await databases.updateDocument(
-        DATABASE_ID,
-        GAMES_COLLECTION_ID,
-        game.$id,
-        {
+      await prisma.game.update({
+        where: { id: game.id },
+        data: {
           status: "ended",
           endedAt: new Date().toISOString(),
-        }
-      );
+        },
+      });
 
       return NextResponse.json({ success: true, transfers });
     }

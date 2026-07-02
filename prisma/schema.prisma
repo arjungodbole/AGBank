@@ -1,0 +1,76 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+    id                String   @id @default(cuid())
+    firstName         String
+    lastName          String
+    email             String   @unique
+    password          String
+    dwollaCustomerId  String?
+    dwollaCustomerUrl String?
+    createdAt         DateTime @default(now())
+  }
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  createdAt DateTime @default(now())
+}
+
+model Bank{
+  id                 String  @id @default(cuid())
+  userId             String
+  bankId             String
+  accountId          String
+  accessToken        String
+  fundingSourceUrl   String
+  shareableId        String  
+}
+
+model Transaction {
+  id                String @id @default(cuid()) 
+  name              String
+  amount            String
+  senderId          String
+  senderBankId      String
+  recieverId        String
+  recieverBankId    String
+  email             String
+  channel           String?
+  category          String?
+  createdAt         DateTime @default(now())
+}
+
+model Game{
+  id              String @id @default(cuid())
+  groupId         String
+  name            String
+  hostUserId      String
+  status          String
+  createdAt       String
+  endedAt         String?
+  chipDenominations String
+}
+
+model Player{
+  id             String @id @default(cuid())
+  gameId         String
+  userId         String
+  userName       String
+  buyIns         String
+  cashOuts       String
+  status         String
+  joinedAt       String 
+}

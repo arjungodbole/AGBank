@@ -250,7 +250,7 @@ export const getAccounts = async ({ userId }: getAccountsProps) => {
 
     const accounts = await Promise.all(
       banks?.map(async (bank: Bank) => {
-        console.log("Processing bank:", bank.$id, "accountID:", bank.accountID);
+        console.log("Processing bank:", bank.$id, "accountID:", bank.accountId);
         console.log("Access token:", bank.accessToken ? "exists" : "missing");
 
         let accountData, institution;
@@ -263,11 +263,11 @@ export const getAccounts = async ({ userId }: getAccountsProps) => {
 
           // Find the specific account that matches this bank record's accountID
           accountData = accountsResponse.data.accounts.find(
-            (acc) => acc.account_id === bank.accountID
+            (acc) => acc.account_id === bank.accountId
           );
 
           if (!accountData) {
-            console.log("Account not found for accountID:", bank.accountID);
+            console.log("Account not found for accountID:", bank.accountId);
             return null;
           }
 
@@ -332,9 +332,9 @@ export const getAccount = async ({ appwriteItemId }: getAccountProps) => {
       access_token: bank.accessToken,
     });
 
-    // Find the specific account matching bank.accountID, or fall back to first account
+    // Find the specific account matching bank.accountId, or fall back to first account
     const accountData = accountsResponse.data.accounts.find(
-      (account) => account.account_id === bank.accountID
+      (account) => account.account_id === bank.accountId
     ) || accountsResponse.data.accounts[0];
 
     // get transfer transactions from appwrite
@@ -343,11 +343,11 @@ export const getAccount = async ({ appwriteItemId }: getAccountProps) => {
     });
 
     const transferTransactions =
-      transferTransactionsData?.documents?.map((transferData: Transaction) => ({
-        id: transferData.$id,
+      transferTransactionsData?.documents?.map((transferData: any) => ({
+        id: transferData.id,
         name: transferData.name!,
         amount: transferData.amount!,
-        date: transferData.$createdAt,
+        date: transferData.createdAt,
         paymentChannel: transferData.channel,
         category: transferData.category,
         type: transferData.senderBankId === bank.$id ? "debit" : "credit",
@@ -366,7 +366,7 @@ export const getAccount = async ({ appwriteItemId }: getAccountProps) => {
 
     // Filter transactions to only show transactions for the current account
     const filteredTransactions = transactionsArray.filter(
-      (transaction) => transaction.accountId === bank.accountID
+      (transaction) => transaction.accountId === bank.accountId
     );
 
     const account = {
