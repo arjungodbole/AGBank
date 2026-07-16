@@ -55,16 +55,6 @@ Sentry
 
 👉 Error Monitoring: Integrated Sentry for production error tracking
 
-<a name="running-locally">Running Locally</a>
-
-bash# Frontend
-npm install
-npm run dev
-
-# CV server
-cd cv-server
-pip install -r requirements.txt
-python [entrypoint].py
 
 Add a .env with your Plaid, and Dwolla credentials (see .env.example).
 
