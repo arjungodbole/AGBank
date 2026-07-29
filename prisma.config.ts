@@ -3,12 +3,23 @@
 import "dotenv/config";
 import { defineConfig } from "prisma/config";
 
+// The CLI reaches the database through this URL alone — it does not read
+// TURSO_AUTH_TOKEN the way lib/prisma.ts does. So for a Turso target the token
+// has to be folded into the URL, or `prisma migrate deploy` gets a 401.
+const databaseUrl = () => {
+  const url = process.env["DATABASE_URL"]?.trim();
+  const authToken = process.env["TURSO_AUTH_TOKEN"]?.trim();
+
+  if (!url?.startsWith("libsql://") || !authToken) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}authToken=${authToken}`;
+};
+
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    url: databaseUrl(),
   },
 });

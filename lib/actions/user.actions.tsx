@@ -55,17 +55,36 @@ export const signIn = async ({ email, password }: signInProps) => {
   }
 };
 
+// Dwolla reports field-level validation problems in `_embedded.errors`. Surface
+// those verbatim — "Postal code is invalid" is worth far more to the user than
+// a generic failure.
+const dwollaMessage = (error: any) => {
+  const embedded = error?.body?._embedded?.errors;
+  if (Array.isArray(embedded) && embedded.length > 0) {
+    return embedded.map((e: any) => e.message).filter(Boolean).join(" ");
+  }
+  return error?.body?.message;
+};
+
 export const signUp = async ({ password, ...userData }: SignUpParams) => {
   const { email, firstName, lastName } = userData;
 
   try {
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return { success: false as const, message: "An account with that email already exists." };
+    }
+
     const dwollaCustomerUrl = await createDwollaCustomer({
       ...userData,
       type: "personal",
     });
 
     if (!dwollaCustomerUrl) {
-      return null;
+      return {
+        success: false as const,
+        message: "Could not create your payments profile. Please check your details and try again.",
+      };
     }
 
     const dwollaCustomerId = extractCustomerIdFromUrl(dwollaCustomerUrl);
@@ -85,10 +104,19 @@ export const signUp = async ({ password, ...userData }: SignUpParams) => {
 
     await createSession(newUser.id);
 
-    return withId(newUser);
-  } catch (error) {
+    return { success: true as const, user: withId(newUser) };
+  } catch (error: any) {
     console.error("signUp server error:", error);
-    return null;
+
+    // Loses the race between the findUnique above and this insert.
+    if (error?.code === "P2002") {
+      return { success: false as const, message: "An account with that email already exists." };
+    }
+
+    return {
+      success: false as const,
+      message: dwollaMessage(error) ?? "Something went wrong creating your account. Please try again.",
+    };
   }
 };
 

@@ -17,18 +17,28 @@ const getEnvironment = (): "production" | "sandbox" => {
   }
 };
 
-const dwollaClient = new Client({
-  environment: getEnvironment(),
-  key: process.env.DWOLLA_KEY as string,
-  secret: process.env.DWOLLA_SECRET as string,
-});
+// Built lazily on first use. At module scope, a missing DWOLLA_ENV would make
+// getEnvironment() throw during import and take down every server action in
+// this file — including ones that never touch Dwolla.
+let client: Client | undefined;
+
+const dwollaClient = () => {
+  if (!client) {
+    client = new Client({
+      environment: getEnvironment(),
+      key: process.env.DWOLLA_KEY as string,
+      secret: process.env.DWOLLA_SECRET as string,
+    });
+  }
+  return client;
+};
 
 // Create a Dwolla Funding Source using a Plaid Processor Token
 export const createFundingSource = async (
   options: CreateFundingSourceOptions
 ) => {
   try {
-    const response = await dwollaClient.post(
+    const response = await dwollaClient().post(
       `customers/${options.customerId}/funding-sources`,
       {
         name: options.fundingSourceName,
@@ -56,7 +66,7 @@ export const createFundingSource = async (
 
 export const createOnDemandAuthorization = async () => {
   try {
-    const onDemandAuthorization = await dwollaClient.post(
+    const onDemandAuthorization = await dwollaClient().post(
       "on-demand-authorizations"
     );
     const authLink = onDemandAuthorization.body._links;
@@ -73,7 +83,7 @@ export const createOnDemandAuthorization = async () => {
 
 export const createDwollaCustomer = async (newCustomer: NewDwollaCustomerParams) => {
   try {
-    return await dwollaClient
+    return await dwollaClient()
       .post("customers", newCustomer)
       .then((res) => res.headers.get("location"));
   } catch (err: any) {
@@ -122,7 +132,7 @@ export const createTransfer = async ({
       },
     };
 
-    const response = await dwollaClient.post("transfers", requestBody);
+    const response = await dwollaClient().post("transfers", requestBody);
     const transferLocation = response.headers.get("location");
     
     if (!transferLocation) {

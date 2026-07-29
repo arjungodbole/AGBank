@@ -29,6 +29,7 @@ const AuthForm = ({ type }: { type: string }) => {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [isLoading, setisLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const formSchema = authFormSchema(type);
 
@@ -43,6 +44,7 @@ const AuthForm = ({ type }: { type: string }) => {
   // 2. Define a submit handler.
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
     setisLoading(true);
+    setErrorMessage(null);
     try {
       //sign up with Appwrite and create plaid token
       const userData = {
@@ -59,8 +61,12 @@ const AuthForm = ({ type }: { type: string }) => {
       };
 
       if (type === "sign-up") {
-        const newUser = await signUp(userData);
-        setUser(newUser);
+        const result = await signUp(userData);
+        if (result.success) {
+          setUser(result.user);
+        } else {
+          setErrorMessage(result.message);
+        }
       }
 
       if (type === "sign-in") {
@@ -68,10 +74,15 @@ const AuthForm = ({ type }: { type: string }) => {
           email: data.email,
           password: data.password,
         });
-        if (response) router.push("/reports");
+        if (response) {
+          router.push("/reports");
+        } else {
+          setErrorMessage("Incorrect email or password.");
+        }
       }
     } catch (error) {
       console.error("Sign up error:", error);
+      setErrorMessage("Something went wrong. Please try again.");
     } finally {
       setisLoading(false);
     }
@@ -194,6 +205,14 @@ const AuthForm = ({ type }: { type: string }) => {
                 label="Password"
                 placeholder="Enter your password"
               />
+              {errorMessage && (
+                <p
+                  role="alert"
+                  className="text-14 font-normal text-red-500 text-center"
+                >
+                  {errorMessage}
+                </p>
+              )}
               <div className="flex flex-col gap-4">
                 <Button type="submit" className="form-btn">
                   {isLoading ? (
